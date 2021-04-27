@@ -1,3 +1,4 @@
+import argparse
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -22,6 +23,7 @@ import sys
 
 dir_path = os.path.dirname(__file__)
 model_b0_path = dir_path + '/PretrainedModels/Ours/ef_b0.pth'
+model_name = 'efficientnet-b0'
 center_face_path = dir_path + '/CenterFace-master/models/onnx/centerface.onnx'
 
 class CenterFace(object):
@@ -208,10 +210,21 @@ def get_res_efnet(image_path: str, model: MyModel):
     return out.detach().numpy()[0][0]
 
 def predict_gender(image):
-    predictions = [] # [[x, y, w, h, gender, confidence],...] 
-    model_name = 'efficientnet-b0'    
-    b0_model = init_ef_model(model_name, model_b0_path)
-        
+    b0_model = init_ef_model(model_name, model_b0_path)   
+    im_pil = Image.fromarray(image)
+    image_data = transform_efnet(im_pil).unsqueeze(0)    
+
+    # Get the 1000-dimensional model output
+    with torch.no_grad():
+        out = b0_model(image_data)
+
+    out = round(out.detach().numpy()[0][0], 3)        
+    gender = 'Male' if out > 0.5 else 'Female'
+    confidence = out if out > 0.5 else (1-out)
+    return gender, confidence
+
+def analyze_image(image):
+    predictions = [] # [[x, y, w, h, gender, confidence],...]              
     boxes = detect_faces(image)    
     print(f'{len(boxes)} faces detected using CenterFace.')
     height, width = image.shape[:2]
@@ -222,18 +235,9 @@ def predict_gender(image):
         x2 = min(round(w + treshold * 0.5), width)        
         y2 = min(round(h + treshold * 0.5), height)               
         crop_face = image[y1:y2, x1:x2]        
-        crop_face = cv2.cvtColor(crop_face, cv2.COLOR_BGR2RGB)
         
-        im_pil = Image.fromarray(crop_face)
-        image_data = transform_efnet(im_pil).unsqueeze(0)    
-
-        # Get the 1000-dimensional model output
-        with torch.no_grad():
-            out = b0_model(image_data)
-
-        out = round(out.detach().numpy()[0][0], 3)        
-        gender = 'Male' if out > 0.5 else 'Female'
-        confidence = out if out > 0.5 else (1-out)
+        gender, confidence = predict_gender(crop_face)
+        
         predictions.append([x, y, w, h, gender, round(confidence, 3)])
         print(gender)            
     return predictions
@@ -248,7 +252,7 @@ def draw_res(image, predictions):
     for (x1, y1, x2, y2, gender, conf) in predictions:
         cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (2, 255, 0), 1)
         bottomLeftCornerOfText = (int(x1), int(y1))
-        fontScale = min(width,height)/(1000)
+        fontScale = min(width,height)/(2500)
         cv2.putText(image, str(gender), 
         bottomLeftCornerOfText, 
         font, 
@@ -260,18 +264,32 @@ def draw_res(image, predictions):
     return image
 
 
-def __main__(argv):
-    if (len(argv) < 2):
-        print('Error')
-        exit()
-    image_path = argv[1]
+def __main__(argv):    
+    parser = argparse.ArgumentParser(description='Gender estimation')    
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        exit(1)
+    
+    parser.add_argument('-i', '--input_path', type=str, help='Input image path', required=True)    
+    parser.add_argument('-o', '--output_path', type=str, help='Output image path', required=True)
+    parser.add_argument('-d', '--detect_faces', type=str, default='True', help='Detect faces True/False (default: True)')
+    args = parser.parse_args()
+
+    image_path = args.input_path
+    output_path = args.output_path    
+    need_detect_faces = args.detect_faces
+
     image = cv2.imread(image_path)
-    predictions = predict_gender(image)
+
+    if(need_detect_faces == 'False'):
+        gender, confidence = predict_gender(image)
+        print(f'{gender} with confidence {confidence}')
+        exit(0)
+    
+    predictions = analyze_image(image)
     new_image = draw_res(image, predictions)
-    # cv2.imshow('', new_image)
-    cv2.imwrite(dir_path + "/out16.jpg", new_image)
-    print(f'Result image using: {dir_path + "/out3.jpg"}')
-    # cv2.waitKey(0)
+    cv2.imwrite(output_path, new_image)
+    print('Result image saved in: ' + output_path)
 
 if __name__ == "__main__":
     __main__(sys.argv)
