@@ -22,9 +22,9 @@ import cv2
 import sys
 
 dir_path = os.path.dirname(__file__)
-model_b0_path = dir_path + '/PretrainedModels/Ours/ef_b0.pth'
+model_b0_path = dir_path + '/PretrainedModels/GenderEstimation/Ours/ef_b0.pth'
 model_name = 'efficientnet-b0'
-center_face_path = dir_path + '/CenterFace-master/models/onnx/centerface.onnx'
+center_face_path = dir_path + '/PretrainedModels/FaceDetecting/centerface.onnx'
 
 class CenterFace(object):
     def __init__(self, landmarks=True):
