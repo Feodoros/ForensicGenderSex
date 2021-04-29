@@ -14,7 +14,7 @@ namespace FaceDetector.CenterFace
     {
         #region Fields
         private readonly CenterFaceParameter _centerFaceParameter;
-        private readonly CenterFace _ultraFaceDetector;
+        private readonly CenterFace _centerFaceDetector;
         private readonly Net _Net;
 
         private int _DH;
@@ -35,8 +35,9 @@ namespace FaceDetector.CenterFace
 
         public string DetectorName => "CenterFace";
 
-        public string BinPath => @"C:\Users\fzhil\source\repos\CropFacesWithCenterFace\model\centerface.bin";
-        public string ParamPath => @"C:\Users\fzhil\source\repos\CropFacesWithCenterFace\model\centerface.param";
+        private string _projectDirectory = Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.Parent.FullName;
+        public string BinPath => Path.Combine(_projectDirectory, "Models", "centerface.bin");
+        public string ParamPath => Path.Combine(_projectDirectory, "Models", "centerface.param");
 
         public Pen DrawPen => new Pen(Color.FromArgb(255, 20, 255), 3);
 
@@ -51,7 +52,7 @@ namespace FaceDetector.CenterFace
                 ParamFilePath = ParamPath,
             };
 
-            _ultraFaceDetector = Create(_centerFaceParameter);
+            _centerFaceDetector = Create(_centerFaceParameter);
         }
 
         private CenterFace(CenterFaceParameter parameter)
@@ -474,7 +475,7 @@ namespace FaceDetector.CenterFace
                 using (NcnnDotNet.Mat inMat = NcnnDotNet.Mat.FromPixels(frame.Data, NcnnDotNet.PixelType.Bgr2Rgb, frame.Cols, frame.Rows))
                 {
 
-                    FaceInfo[] faceInfos = _ultraFaceDetector.Detect(inMat, frame.Cols, frame.Rows, tolerance).ToArray();
+                    FaceInfo[] faceInfos = _centerFaceDetector.Detect(inMat, frame.Cols, frame.Rows, tolerance).ToArray();
 
                     foreach (FaceInfo detectedFace in faceInfos)
                     {
