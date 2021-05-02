@@ -1,45 +1,111 @@
-﻿using FaceDetector;
-using FaceDetector.CenterFace;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Threading;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using FaceDetector;
+using FaceDetector.CenterFace;
 
 namespace PredictGenderWPF
 {
     class ViewModel : INotifyPropertyChanged
     {
-        private List<PrepairedFace> _prepairedFaces = new List<PrepairedFace>();
         private CenterFace _centerFace;
         private GenderPredictor _genderPredictor;
+        private readonly List<PrepairedFace> Data = new List<PrepairedFace>();
+
+        #region Actions/Funcs
+
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public Action<Bitmap> SetImage;
-        public Action<Bitmap> SetSmallImage;
+        public Action<BitmapSource> SetImage;
+        public Action<BitmapSource> SetSmallImage;
         public Action<List<PrepairedFace>> SetListBoxFaces;
         public Action<string> LogMessage;
         public Action<string> SetSelectedLbItem;
-        public Func<Bitmap> GetOriginalImage;
-        public Func<Bitmap> GetCurrentImage;
-        public Func<string> GetSavingPath;
-        public Func<string> GetCurrentImagePath;
-        public Func<float> GetScaleFactor;
 
-        #region Fields        
+        public Func<BitmapSource> GetOriginalImage;
+        public Func<BitmapSource> GetCurrentImage;
+        public Func<string> GetSavingPath;
+        public Func<string> GetOriginalImagePath;
+        public Func<double> GetScaleFactor;
+
+        #endregion
+
+        #region Commands
+
         private ICommand _analyzeCommand;
         private ICommand _saveCommand;
         private ICommand _selectFaceCommand;
         private ICommand _clickFaceCommand;
-        private bool _isPictureSet;
+
+        public ICommand AnalyzeCommand
+        {
+            get
+            {
+                if (_analyzeCommand == null)
+                {
+                    _analyzeCommand = new RelayCommand(o => Analyze(), o => true);
+                }
+                return _analyzeCommand;
+            }
+        }
+
+        public ICommand SelectFaceCommand
+        {
+            get
+            {
+                if (_selectFaceCommand == null)
+                {
+                    _selectFaceCommand = new RelayCommand(SelectFace, o => true);
+                }
+                return _selectFaceCommand;
+            }
+        }
+
+        public ICommand ClickFaceCommand
+        {
+            get
+            {
+                if (_clickFaceCommand == null)
+                {
+                    _clickFaceCommand = new RelayCommand(o => ClickOnImage(), o => true);
+                }
+                return _clickFaceCommand;
+            }
+        }
+
+        public ICommand SaveCommand
+        {
+            get
+            {
+                if (_saveCommand == null)
+                {
+                    _saveCommand = new RelayCommand(o => SaveImage(), o => true);
+                }
+                return _saveCommand;
+            }
+        }
+
         #endregion
+
+        #region Fields        
+
+        private bool _isPictureSet;
+        private double _panelX;
+        private double _panelY;
+        private BitmapSource _originalImage;
+
+        #endregion
+
+        #region Properties
 
         public bool IsControlsEnabled
         {
@@ -54,30 +120,6 @@ namespace PredictGenderWPF
             }
         }
 
-        public ICommand AnalyzeCommand
-        {
-            get
-            {
-                if (_analyzeCommand == null)
-                {
-                    _analyzeCommand = new RelayCommand(o => Analyze(), o => true);
-                }
-                return _analyzeCommand;
-            }
-        }
-        public ICommand SelectFaceCommand
-        {
-            get
-            {
-                if (_selectFaceCommand == null)
-                {
-                    _selectFaceCommand = new RelayCommand(SelectFace, o => true);
-                }
-                return _selectFaceCommand;
-            }
-        }
-        private double _panelX;
-        private double _panelY;
         public double PanelX
         {
             get { return _panelX; }
@@ -85,7 +127,7 @@ namespace PredictGenderWPF
             {
                 if (value.Equals(_panelX)) return;
                 _panelX = value;
-                RaisePropertyChanged("");
+                RaisePropertyChanged("MouseX");
             }
         }
 
@@ -96,54 +138,304 @@ namespace PredictGenderWPF
             {
                 if (value.Equals(_panelY)) return;
                 _panelY = value;
-                RaisePropertyChanged("");
-            }
-        }
-        public ICommand ClickFaceCommand
-        {
-            get
-            {
-                if (_clickFaceCommand == null)
-                {
-                    _clickFaceCommand = new RelayCommand(o => ClickOnImage(), o => true);
-                }
-                return _clickFaceCommand;
-            }
-        }
-        public ICommand SaveCommand
-        {
-            get
-            {
-                if (_saveCommand == null)
-                {
-                    _saveCommand = new RelayCommand(o => SaveImage(), o => true);
-                }
-                return _saveCommand;
+                RaisePropertyChanged("MouseY");
             }
         }
 
-        private void SaveImage()
+        private BitmapSource OriginalImage
         {
-            string pathToSave = GetSavingPath?.Invoke();
-            if (string.IsNullOrEmpty(pathToSave))
+            get
+            {
+                return _originalImage;
+            }
+            set
+            {
+                _originalImage = value;
+            }
+        }
+
+        #endregion
+
+        #region GenderPrediction
+
+        private async void Analyze()
+        {
+            UpdateControlsEnableState(false);
+
+            Data.Clear();
+            PrepareTempDirectory();
+
+            if (_centerFace == null)
+            {
+                _centerFace = new CenterFace();
+            }
+
+            if (_genderPredictor == null)
+            {
+                _genderPredictor = new GenderPredictor();
+            }
+
+            OriginalImage = GetOriginalImage?.Invoke().Clone();
+
+            await Task.Run(() =>
+            {
+                RunGenderEstimation();
+            });
+
+            UpdateControlsEnableState(true);
+            SetListBoxFaces?.Invoke(Data);
+            DrawRectsOnImage();
+        }
+
+        private void RunGenderEstimation()
+        {
+            string currentImagePath = GetOriginalImagePath?.Invoke();
+            if (string.IsNullOrEmpty(currentImagePath))
             {
                 return;
             }
 
-            using (Bitmap currentImage = new Bitmap(GetCurrentImage?.Invoke()))
+            DetectFaces(currentImagePath);
+
+            CropFaces();
+
+            PredictGender();
+
+            Logger($"Gender estimation finished");
+        }
+
+        private void DetectFaces(string currentImagePath)
+        {
+            try
             {
-                currentImage.Save(pathToSave);
-                Logger("Image saved in " + pathToSave);
+                List<Face> faces = _centerFace.DetectFaces(currentImagePath);
+                if (faces.Count == 0)
+                {
+                    Logger($"No face detected");
+                    return;
+                }
+                Logger($"Detected {faces.Count} faces");
+
+                foreach (Face face in faces)
+                {
+                    Data.Add(new PrepairedFace
+                    {
+                        X1 = face.X1,
+                        X2 = face.X2,
+                        Y1 = face.Y1,
+                        Y2 = face.Y2
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger("Catch exception: " + ex.Message);
+                return;
             }
         }
 
+        private void CropFaces()
+        {
+            for (int i = 0; i < Data.Count; i++)
+            {
+                PrepairedFace prepairedFace = Data[i];
+                string cropfaceName = $"Face_{i}";
+                string cropFacePath = Path.Combine(GetTempDirectoryPath(), $"{cropfaceName}.jpg");
+
+                prepairedFace.Name = cropfaceName;
+                prepairedFace.Path = cropFacePath;
+
+                CroppedBitmap cropFace = CropFaceFromBitmap(prepairedFace);
+
+                BitmapEncoder encoder = new JpegBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(cropFace));
+                using (FileStream fileStream = new FileStream(cropFacePath, FileMode.Create))
+                {
+                    encoder.Save(fileStream);
+                }
+            }
+        }
+
+        private void PredictGender()
+        {
+            foreach (PrepairedFace prepairedFace in Data)
+            {
+                string gender = "Unknown";
+                try
+                {
+                    gender = _genderPredictor.Predict(prepairedFace.Path);
+                }
+                catch (Exception ex)
+                {
+                    Logger("Catch exception: " + ex.Message);
+                }
+                prepairedFace.Gender = gender;
+            }
+        }
+
+        #endregion
+
+        #region Helpers
+
+        private CroppedBitmap CropFaceFromBitmap(PrepairedFace prepairedFace)
+        {
+            string pathToImage = GetOriginalImagePath?.Invoke();
+            BitmapImage bitmapImage = new BitmapImage();
+            bitmapImage.BeginInit();
+            bitmapImage.UriSource = new Uri(pathToImage, UriKind.Absolute);
+            bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+            bitmapImage.EndInit();
+
+            double width = bitmapImage.Width;
+            double height = bitmapImage.Height;
+
+            int x1 = (int)Math.Max(prepairedFace.X1 - prepairedFace.X2 * 0.3, 0);
+            int y1 = (int)Math.Max(prepairedFace.Y1 - prepairedFace.Y2 * 0.3, 0);
+            int x2 = (int)Math.Min(prepairedFace.X2 * 1.3, width);
+            int y2 = (int)Math.Min(prepairedFace.Y2 * 1.3, height);
+
+            CroppedBitmap cb = new CroppedBitmap(bitmapImage, new Int32Rect(x1, y1, x2, y2));
+            return cb;
+        }
+
+
+        private void PrepareTempDirectory()
+        {
+            string tempDir = GetTempDirectoryPath();
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+            Directory.CreateDirectory(tempDir);
+            Logger("Temp directory: " + tempDir);
+        }
+
+        private string GetTempDirectoryPath()
+        {
+            string projectDirectory = Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.FullName;
+            return Path.Combine(projectDirectory, "temp");
+        }
+
+        private void ChangeFaceSelection()
+        {
+            foreach (PrepairedFace face in Data)
+            {
+                if (face.Selected)
+                {
+                    string pathToFace = face.Path;
+                    BitmapImage bitmapImage = new BitmapImage();
+                    bitmapImage.BeginInit();
+                    bitmapImage.UriSource = new Uri(pathToFace, UriKind.Absolute);
+                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmapImage.EndInit();
+
+                    DrawingVisual dv = new DrawingVisual();
+                    RenderTargetBitmap rtb = new RenderTargetBitmap(bitmapImage.PixelWidth, bitmapImage.PixelHeight, 96, 96, PixelFormats.Pbgra32);
+
+                    using (DrawingContext dc = dv.RenderOpen())
+                    {
+                        dc.DrawImage(bitmapImage, new Rect(0, 0, bitmapImage.PixelWidth, bitmapImage.PixelHeight));
+
+                        FormattedText text = new FormattedText(face.Gender,
+                            CultureInfo.GetCultureInfo("en-us"),
+                            FlowDirection.LeftToRight,
+                            new Typeface("Tahoma"),
+                            face.X2 / 5,
+                            Brushes.White,
+                            96);
+
+                        dc.DrawText(text, new Point(0, 0));
+                    }
+
+                    rtb.Render(dv);
+
+                    SetSmallImage?.Invoke(rtb);
+                    break;
+                }
+            }
+            DrawRectsOnImage();
+        }
+
+        public void UpdateControlsEnableState(bool isEnabled)
+        {
+            IsControlsEnabled = isEnabled;
+        }
+
+        private void DrawRectsOnImage()
+        {
+            BitmapSource originalImage = GetOriginalImage?.Invoke().Clone();
+
+            double size = originalImage.Width * originalImage.Height;
+
+            double rectThickness = size / (500 * 500);
+            double fontSize = 20;
+
+            Pen redPen = new Pen(Brushes.Red, rectThickness);
+            Pen greenPen = new Pen(Brushes.LawnGreen, rectThickness);
+
+            DrawingVisual dv = new DrawingVisual();
+            RenderTargetBitmap rtb = new RenderTargetBitmap(originalImage.PixelWidth, originalImage.PixelHeight, 96, 96, PixelFormats.Pbgra32);
+
+            using (DrawingContext dc = dv.RenderOpen())
+            {
+                dc.DrawImage(originalImage, new Rect(0, 0, originalImage.PixelWidth, originalImage.PixelHeight));
+
+                foreach (PrepairedFace face in Data)
+                {
+                    Pen pen = greenPen;
+                    if (face.Selected)
+                    {
+                        pen = redPen;
+                    }
+
+                    dc.DrawRectangle(null, pen, new Rect(face.X1, face.Y1, face.X2, face.Y2));
+
+                    FormattedText text = new FormattedText(face.Gender,
+                        CultureInfo.GetCultureInfo("en-us"),
+                        FlowDirection.LeftToRight,
+                        new Typeface("Tahoma"),
+                        fontSize,
+                        Brushes.White);
+
+                    try
+                    {
+                        dc.DrawText(text, new Point(face.X1 - rectThickness, face.Y1 - fontSize - rectThickness));
+                    }
+                    catch
+                    {
+                        dc.DrawText(text, new Point(face.X1, face.Y1));
+                    }
+                }
+            }
+
+            rtb.Render(dv);
+
+            SetImage?.Invoke(rtb);
+            Logger("Drawing rectangles finished");
+        }
+
+        public void ChangePicture()
+        {
+            Data.Clear();
+            Logger("Picture was changed");
+        }
+
+        private void Logger(string message)
+        {
+            Application.Current.Dispatcher.Invoke(() => LogMessage?.Invoke(message));
+        }
+
+        #endregion
+
+        #region UserControls
+
         private void ClickOnImage()
         {
-            float factor = GetScaleFactor.Invoke();
+            double factor = GetScaleFactor.Invoke();
             double newX = PanelX * factor;
             double newY = PanelY * factor;
 
-            foreach (PrepairedFace face in _prepairedFaces)
+            foreach (PrepairedFace face in Data)
             {
                 face.Selected = false;
 
@@ -175,241 +467,37 @@ namespace PredictGenderWPF
 
             string content = (string)selectedItem.Content;
             string faceName = content.Split(',').FirstOrDefault();
-            foreach (PrepairedFace face in _prepairedFaces)
+            foreach (PrepairedFace face in Data)
             {
                 face.Selected = faceName.Equals(face.Name);
             }
             ChangeFaceSelection();
         }
 
-        private void ChangeFaceSelection()
+        private void SaveImage()
         {
-            foreach (PrepairedFace face in _prepairedFaces)
-            {
-                if (face.Selected)
-                {
-                    string pathToFace = face.Path;
-                    using (Bitmap smallFace = new Bitmap(pathToFace))
-                    using (Graphics g = Graphics.FromImage(smallFace))
-                    {
-                        g.DrawString(face.Gender, new Font("Tahoma", face.X2 / 5), Brushes.White, 0, 0);
-                        SetSmallImage?.Invoke(smallFace);
-                    }
-                }
-            }
-            DrawRectsOnImage();
-        }
-
-        public void UpdateControlsEnableState(bool isEnabled)
-        {
-            IsControlsEnabled = isEnabled;
-        }
-
-        public string FaceByClick(double x, double y)
-        {
-            string facePath = "";
-
-            foreach (PrepairedFace face in _prepairedFaces)
-            {
-                // Check required face
-                if (x > face.X1 && x < (face.X1 + face.X2) &&
-                    y > face.Y1 && y < (face.Y1 + face.Y2))
-                {
-                    return face.Path;
-                }
-            }
-
-            return facePath;
-        }
-
-        private async void Analyze()
-        {
-            UpdateControlsEnableState(false);
-            _prepairedFaces.Clear();
-
-            await Task.Run(() =>
-            {
-                Run();
-            });
-
-            UpdateControlsEnableState(true);
-            SetListBoxFaces?.Invoke(_prepairedFaces);
-            DrawRectsOnImage();
-        }
-
-        private void Run()
-        {
-            PrepareTempDirectory();
-            string currentImagePath = GetCurrentImagePath?.Invoke();
-            if (string.IsNullOrEmpty(currentImagePath))
+            string pathToSave = GetSavingPath?.Invoke();
+            if (string.IsNullOrEmpty(pathToSave))
             {
                 return;
             }
 
-            if (_centerFace == null)
-            {
-                _centerFace = new CenterFace();
-            }
+            BitmapSource bitmapSource = GetCurrentImage?.Invoke();
+            BitmapEncoder encoder = new JpegBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
 
-            if (_genderPredictor == null)
+            using (FileStream fileStream = new FileStream(pathToSave, FileMode.Create))
             {
-                _genderPredictor = new GenderPredictor();
-            }
-
-            // Detect faces
-            List<Face> faces = DetectFaces();
-            if (faces.Count == 0)
-            {
-                Logger($"No face detected");
-                return;
-            }
-            Logger($"Detected {faces.Count} faces");
-
-            PredictGender(faces, currentImagePath);
-            Logger($"Gender estimation finished");
-        }
-
-        private List<Face> DetectFaces()
-        {
-            List<Face> faces = new List<Face>();
-            try
-            {
-                faces = _centerFace.DetectFaces(GetCurrentImagePath?.Invoke());
-            }
-            catch (Exception ex)
-            {
-                Logger("Catch exception: " + ex.Message);
-            }
-            return faces;
-        }
-
-        /// <summary>
-        /// Predict gender for each face and make a List type of <see cref="PrepairedFace"/>
-        /// </summary>
-        /// <param name="faces">Detected faces</param>
-        /// <param name="currentImagePath">Path to original image</param>
-        private void PredictGender(List<Face> faces, string currentImagePath)
-        {
-            int i = 0;
-            foreach (Face face in faces)
-            {
-                string cropFacePath = CropFace(face, currentImagePath, i.ToString());
-                string gender = "Unknown";
-                try
-                {
-                    gender = _genderPredictor.Predict(cropFacePath);
-                }
-                catch (Exception ex)
-                {
-                    Logger("Catch exception: " + ex.Message);
-                }
-                _prepairedFaces.Add(new PrepairedFace
-                {
-                    Path = cropFacePath,
-                    Name = $"Face_{i}",
-                    Gender = gender,
-                    X1 = face.X1,
-                    X2 = face.X2,
-                    Y1 = face.Y1,
-                    Y2 = face.Y2
-                });
-
-                i++;
+                encoder.Save(fileStream);
+                Logger("Image saved in " + pathToSave);
             }
         }
 
-        private void DrawRectsOnImage()
-        {
-            using (Bitmap bitmap = new Bitmap(GetOriginalImage?.Invoke()))
-            {
-                Pen redPen = new Pen(Color.FromArgb(255, 0, 255), 3);
-                Pen greenPen = new Pen(Color.FromArgb(0, 255, 0), 3);
-
-                foreach (PrepairedFace face in _prepairedFaces)
-                {
-                    Pen pen = greenPen;
-                    if (face.Selected)
-                    {
-                        pen = redPen;
-                    }
-
-                    using (Graphics g = Graphics.FromImage(bitmap))
-                    {
-                        g.DrawRectangle(pen, face.X1, face.Y1, face.X2, face.Y2);
-                        try
-                        {
-                            g.DrawString(face.Gender, new Font("Tahoma", 20), Brushes.White, face.X1 - 5, face.Y1 - 25);
-                        }
-                        catch
-                        {
-                            g.DrawString(face.Gender, new Font("Tahoma", 20), Brushes.White, face.X1, face.Y1);
-                        }
-                    }
-                }
-                Application.Current.Dispatcher.Invoke(() => SetImage?.Invoke(bitmap));
-            }
-            Logger("Drawing rectangles finished");
-        }
-
-        private string CropFace(Face face, string imagePath, string name)
-        {
-            Bitmap src = System.Drawing.Image.FromFile(imagePath) as Bitmap;
-            int width = src.Width;
-            int height = src.Height;
-
-            int x1 = (int)Math.Max(face.X1 - face.X2 * 0.3, 0);
-            int y1 = (int)Math.Max(face.Y1 - face.Y2 * 0.3, 0);
-            int x2 = (int)Math.Min(face.X2 * 1.3, width);
-            int y2 = (int)Math.Min(face.Y2 * 1.3, height);
-
-            Rectangle cropRect = new Rectangle(x1, y1, x2, y2);
-            Bitmap target = new Bitmap(cropRect.Width, cropRect.Height);
-
-            using (Graphics g = Graphics.FromImage(target))
-            {
-                g.DrawImage(src, new Rectangle(0, 0, target.Width, target.Height),
-                                 cropRect,
-                                 GraphicsUnit.Pixel);
-            }
-            string cropFacePath = Path.Combine(GetTempDirectoryPath(), $"{name}.jpg");
-            target.Save(cropFacePath);
-            return cropFacePath;
-        }
-
-        private void PrepareTempDirectory()
-        {
-            string tempDir = GetTempDirectoryPath();
-            if (Directory.Exists(tempDir))
-            {
-                Directory.Delete(tempDir, true);
-            }
-            Directory.CreateDirectory(tempDir);
-            Logger("Temp directory: " + tempDir);
-        }
-
-        private string GetTempDirectoryPath()
-        {
-            string projectDirectory = Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.FullName;
-            return Path.Combine(projectDirectory, "temp");
-        }
-
-        /// <summary>
-        /// User have chosen new pic
-        /// </summary>
-        public void ChangePicture()
-        {
-            _prepairedFaces.Clear();
-            Logger("Picture was changed");
-        }
+        #endregion
 
         private void RaisePropertyChanged(string PropertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(PropertyName));
-        }
-
-        private void Logger(string message)
-        {
-            Application.Current.Dispatcher.Invoke(() => LogMessage?.Invoke(message));
         }
     }
 }

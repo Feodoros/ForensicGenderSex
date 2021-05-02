@@ -21,16 +21,13 @@ namespace PredictGenderWPF
 {
     public partial class MainWindow : Window
     {
-        private readonly Action<bool> _updateControlsEnableState;
-        private readonly Action<object> _selectFace;
-        public delegate void ControlHandler();
+        private delegate void ControlHandler();
         private event ControlHandler ChangePictureEvent;
-        private Func<double, double, string> GetFaceByClick;
+        private readonly Action<bool> _updateControlsEnableState;
 
-        private Bitmap OriginalImage { get; set; }
-        private Bitmap CurrentImage { get; set; }
-
-        private string CurrentImagePath { get; set; }
+        private BitmapImage OriginalImage { get; set; }
+        private BitmapSource CurrentImage { get; set; }
+        private string OriginalImagePath { get; set; }
 
         public MainWindow()
         {
@@ -39,31 +36,19 @@ namespace PredictGenderWPF
             {
                 GetOriginalImage = () => OriginalImage,
                 GetCurrentImage = () => CurrentImage,
-                GetCurrentImagePath = () => CurrentImagePath,
+                GetOriginalImagePath = () => OriginalImagePath,
                 GetScaleFactor = GetScaleFactor,
                 GetSavingPath = GetImageSavingPath,
-                SetImage = (newImage) => { CurrentImage = new Bitmap(newImage); imageBox.Source = BitmapToImageSource(newImage); },
-                SetSmallImage = (smallImage) => { imageBoxSmall.Source = BitmapToImageSource(new Bitmap(smallImage)); },
+                SetImage = (newImage) => { CurrentImage = newImage.Clone(); imageBox.Source = newImage; },
+                SetSmallImage = (smallImage) => { imageBoxSmall.Source = smallImage; },
                 SetListBoxFaces = (faces) => SetListBoxItems(faces),
                 SetSelectedLbItem = (faceName) => SetSelectedLbItem(faceName),
                 LogMessage = (message) => Log(message)
             };
-            GetFaceByClick = (x, y) => viewModel.FaceByClick(x, y);
             _updateControlsEnableState = viewModel.UpdateControlsEnableState;
             ChangePictureEvent += () => { viewModel.ChangePicture(); };
             DataContext = viewModel;
             Log("Gender estimation using CenterFace detector and EfficientNet-B0 for gender prediction");
-        }
-
-        private void SetListBoxItems(List<PrepairedFace> prepairedFaces)
-        {
-            listBoxFaces.Items.Clear();
-            Log("Clear ListBox items");
-            foreach (var face in prepairedFaces)
-            {
-                listBoxFaces.Items.Add(new ListBoxItem() { Content = $"{face.Name}, {face.Gender}" });
-            }
-            Log($"Add new {prepairedFaces.Count} faces to ListBox");
         }
 
         private void OpenFile(object sender, RoutedEventArgs e)
@@ -75,20 +60,35 @@ namespace PredictGenderWPF
             if (openFileDialog.ShowDialog() == true)
             {
                 ChangePictureEvent?.Invoke();
-                CurrentImagePath = openFileDialog.FileName;
-                CurrentImage = OriginalImage = new Bitmap(CurrentImagePath);
-                imageBox.Source = BitmapToImageSource(OriginalImage);
-                Log("Open new image: " + CurrentImagePath);
-                _updateControlsEnableState?.Invoke(true);
                 listBoxFaces.Items.Clear();
                 imageBoxSmall.Source = null;
+
+                OriginalImagePath = openFileDialog.FileName;
+
+                OriginalImage = new BitmapImage();
+                OriginalImage.BeginInit();
+                OriginalImage.UriSource = new Uri(OriginalImagePath, UriKind.Absolute);
+                OriginalImage.CacheOption = BitmapCacheOption.OnLoad;
+                OriginalImage.EndInit();
+
+                CurrentImage = OriginalImage.Clone();
+
+                imageBox.Source = OriginalImage;
+                Log("Open new image: " + OriginalImagePath);
+                _updateControlsEnableState?.Invoke(true);
+
             }
         }
 
-        private void Log(string message)
+        private void SetListBoxItems(List<PrepairedFace> prepairedFaces)
         {
-            logger.AppendText($"{DateTime.Now}: " + message + '\n');
-            logger.ScrollToEnd();
+            listBoxFaces.Items.Clear();
+            Log("Clear ListBox items");
+            foreach (var face in prepairedFaces)
+            {
+                listBoxFaces.Items.Add(new ListBoxItem() { Content = $"{face.Name}, {face.Gender}" });
+            }
+            Log($"Add new {prepairedFaces.Count} faces to ListBox");
         }
 
         private string GetImageSavingPath()
@@ -123,11 +123,11 @@ namespace PredictGenderWPF
             }
         }
 
-        private float GetScaleFactor()
+        private double GetScaleFactor()
         {
-            float imagewidth = CurrentImage.Width;
+            double imagewidth = CurrentImage.Width;
             double viewWidth = imageBox.ActualWidth;
-            return (float)(imagewidth / viewWidth);
+            return imagewidth / viewWidth;
         }
 
         private void SetSelectedLbItem(string faceName)
@@ -144,32 +144,10 @@ namespace PredictGenderWPF
             }
         }
 
-        private void imageBox_MouseDown(object sender, MouseButtonEventArgs e)
+        private void Log(string message)
         {
-            var clickPoint = e.GetPosition(imageBox);
-            double x = clickPoint.X;
-            double y = clickPoint.Y;
-
-            double imageWidth = imageBox.ActualWidth;
-            double imageHeight = imageBox.ActualHeight;
-            float width = CurrentImage.Width;
-            float height = CurrentImage.Height;
-            float sizeRatio = (float)(width / imageWidth);
-
-            double newX = x * sizeRatio;
-            double newY = y * sizeRatio;
-
-            string pathToFace = GetFaceByClick?.Invoke(newX, newY);
-
-            if (string.IsNullOrEmpty(pathToFace))
-            {
-                Log("No face");
-                return;
-            }
-            imageBoxSmall.Source = BitmapToImageSource(new Bitmap(pathToFace));
-            listBoxFaces.SelectedItem = listBoxFaces.Items.GetItemAt(0);
-            Log("Face touched!" + pathToFace);
-            Console.WriteLine();
+            logger.AppendText($"{DateTime.Now}: " + message + '\n');
+            logger.ScrollToEnd();
         }
     }
 }

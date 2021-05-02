@@ -242,11 +242,11 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="GenderPredictor.cs" />
-    <Compile Include="MouseBehaviour.cs" />
-    <Compile Include="PrepairedFace.cs" />
-    <Compile Include="RelayCommand.cs" />
-    <Compile Include="ScrollIntoViewForListBox.cs" />
+    <Compile Include="Helpers\GenderPredictor.cs" />
+    <Compile Include="Helpers\MouseBehaviour.cs" />
+    <Compile Include="Helpers\PrepairedFace.cs" />
+    <Compile Include="Helpers\RelayCommand.cs" />
+    <Compile Include="Helpers\ScrollIntoViewForListBox.cs" />
     <Compile Include="ViewModel.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
