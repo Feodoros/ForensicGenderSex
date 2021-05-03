@@ -6,7 +6,7 @@
         xmlns:ie="clr-namespace:System.Windows.Interactivity;assembly=System.Windows.Interactivity"
         xmlns:local="clr-namespace:PredictGenderWPF"
         mc:Ignorable="d"
-        Title="Gender estimation" Height="520.5" Width="852.5">
+        Title="Gender estimation" Height="630" Width="974">
     <Window.Resources>
     </Window.Resources>
 
@@ -22,7 +22,7 @@
                 <RowDefinition Height="0.04*"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="0.25*"/>
+                <RowDefinition Height="0.15*"/>
             </Grid.RowDefinitions>
 
             <Border Background="GhostWhite" BorderBrush="Gainsboro" BorderThickness="1" Grid.Column="0" Grid.Row="1">
@@ -66,17 +66,26 @@
             </Grid.ColumnDefinitions>
 
             <Grid.RowDefinitions >
+                <RowDefinition Height="0*"/>
                 <RowDefinition Height="5*"/>
                 <RowDefinition Height="40*"/>
-                <RowDefinition Height="45*"/>
-                <RowDefinition Height="20*"/>
+                <RowDefinition Height="30*"/>
+                <RowDefinition Height="10*"/>
             </Grid.RowDefinitions>
 
-            <Border Background="GhostWhite" BorderBrush="Gainsboro" BorderThickness="1" Grid.Column="1" Grid.Row="1" Margin="0, 10, 0, 10">
-                <Image x:Name="imageBoxSmall" Height="Auto" Width="Auto" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="1" Grid.Row="1"/>
+            <Label x:Name="labelGender" Grid.Column ="1" Grid.Row ="1" FontSize="17"/>
+
+            <Border Background="GhostWhite" BorderBrush="Gainsboro" BorderThickness="1" Grid.Column="1" Grid.Row="2" Margin="0, 0, 0, 10">
+                <Image x:Name="imageBoxSmall" Height="Auto" Width="Auto" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="1" Grid.Row="1">
+                    <Image.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Save" Command="{Binding Path=SaveCommand}"/>
+                        </ContextMenu>
+                    </Image.ContextMenu>
+                </Image>
             </Border>
 
-            <ListBox Name="listBoxFaces" Grid.Column ="1" Grid.Row ="2" Margin="0, 10, 0, 10" IsEnabled="{Binding Path=IsControlsEnabled}">
+            <ListBox Name="listBoxFaces" Grid.Column ="1" Grid.Row ="3" Margin="0, 10, 0, 10" IsEnabled="{Binding Path=IsControlsEnabled}">
                 <ie:Interaction.Triggers>
                     <ie:EventTrigger EventName="SelectionChanged">
                         <ie:InvokeCommandAction Command="{Binding SelectFaceCommand}"  CommandParameter="{Binding ElementName=listBoxFaces}"/>
@@ -87,14 +96,12 @@
                 </ie:Interaction.Behaviors>
             </ListBox>
 
-            <Viewbox Width="Auto" Height="Auto" HorizontalAlignment="Center" Grid.Column ="1" Grid.Row ="3" IsEnabled="{Binding Path=IsControlsEnabled}" Margin="0, 10, 0, 10">
+            <Viewbox Width="Auto" Height="Auto" HorizontalAlignment="Center" Grid.Column ="1" Grid.Row ="4" IsEnabled="{Binding Path=IsControlsEnabled}" Margin="0, 0, 0, 10">
                 <Grid>
                     <Grid.RowDefinitions >
                         <RowDefinition Height="5*"/>
-                        <RowDefinition Height="5*"/>
                     </Grid.RowDefinitions>
                     <Button Width="Auto"  x:Name="btnAnalyze" Content="Analyze" Grid.Row ="0" Margin="0,2,0,2" Background="DarkGray" Command="{Binding Path=AnalyzeCommand}"/>
-                    <Button Width="66" x:Name="btnSave" Content="Save"  Grid.Row ="1" Margin="0,2,0,2" Background="DarkGray" Command="{Binding Path=SaveCommand}"/>
                 </Grid>
             </Viewbox>
         </Grid>
