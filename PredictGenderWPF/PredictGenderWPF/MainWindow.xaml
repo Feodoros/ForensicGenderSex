@@ -5,6 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:ie="clr-namespace:System.Windows.Interactivity;assembly=System.Windows.Interactivity"
         xmlns:local="clr-namespace:PredictGenderWPF"
+        xmlns:ui="http://schemas.modernwpf.com/2019"
+        ui:WindowHelper.UseModernWindowStyle="True"        
+        ui:ThemeManager.RequestedTheme="Light"
         mc:Ignorable="d"
         Title="Gender estimation" Height="630" Width="974">
     <Window.Resources>
@@ -55,7 +58,8 @@
                      TextWrapping="WrapWithOverflow"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" 
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     IsReadOnly="True"/>
+                     IsReadOnly="True"
+                     Style="{StaticResource DataGridTextBoxStyle}"/>
         </Grid>
 
         <Grid Grid.Column ="1" >
@@ -101,7 +105,8 @@
                     <Grid.RowDefinitions >
                         <RowDefinition Height="5*"/>
                     </Grid.RowDefinitions>
-                    <Button Width="Auto"  x:Name="btnAnalyze" Content="Analyze" Grid.Row ="0" Margin="0,2,0,2" Background="DarkGray" Command="{Binding Path=AnalyzeCommand}"/>
+                    <Button Width="Auto"  x:Name="btnAnalyze" Content="Analyze" Grid.Row ="0" Margin="0,2,0,2" Command="{Binding Path=AnalyzeCommand}"
+                            Style="{StaticResource AccentButtonStyle}"/>
                 </Grid>
             </Viewbox>
         </Grid>
