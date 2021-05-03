@@ -30,6 +30,7 @@ namespace PredictGenderWPF
         public Action<List<PrepairedFace>> SetListBoxFaces;
         public Action<string> LogMessage;
         public Action<string> SetSelectedLbItem;
+        public Action<string> SetGenderLabel;
 
         public Func<BitmapSource> GetOriginalImage;
         public Func<BitmapSource> GetCurrentImage;
@@ -101,7 +102,6 @@ namespace PredictGenderWPF
         private bool _isPictureSet;
         private double _panelX;
         private double _panelY;
-        private BitmapSource _originalImage;
 
         #endregion
 
@@ -142,18 +142,6 @@ namespace PredictGenderWPF
             }
         }
 
-        private BitmapSource OriginalImage
-        {
-            get
-            {
-                return _originalImage;
-            }
-            set
-            {
-                _originalImage = value;
-            }
-        }
-
         #endregion
 
         #region GenderPrediction
@@ -175,8 +163,6 @@ namespace PredictGenderWPF
                 _genderPredictor = new GenderPredictor();
             }
 
-            OriginalImage = GetOriginalImage?.Invoke().Clone();
-
             await Task.Run(() =>
             {
                 RunGenderEstimation();
@@ -184,6 +170,7 @@ namespace PredictGenderWPF
 
             UpdateControlsEnableState(true);
             SetListBoxFaces?.Invoke(Data);
+            SetSelectedLbItem?.Invoke(Data.FirstOrDefault().Name);
             DrawRectsOnImage();
         }
 
@@ -289,15 +276,14 @@ namespace PredictGenderWPF
             double width = bitmapImage.Width;
             double height = bitmapImage.Height;
 
-            int x1 = (int)Math.Max(prepairedFace.X1 - prepairedFace.X2 * 0.3, 0);
-            int y1 = (int)Math.Max(prepairedFace.Y1 - prepairedFace.Y2 * 0.3, 0);
-            int x2 = (int)Math.Min(prepairedFace.X2 * 1.3, width);
-            int y2 = (int)Math.Min(prepairedFace.Y2 * 1.3, height);
+            int x1 = (int)Math.Max(prepairedFace.X1 - prepairedFace.X2 * 0.25, 0);
+            int y1 = (int)Math.Max(prepairedFace.Y1 - prepairedFace.Y2 * 0.25, 0);
+            int x2 = (int)Math.Min(prepairedFace.X2 * 1.25, width);
+            int y2 = (int)Math.Min(prepairedFace.Y2 * 1.25, height);
 
             CroppedBitmap cb = new CroppedBitmap(bitmapImage, new Int32Rect(x1, y1, x2, y2));
             return cb;
         }
-
 
         private void PrepareTempDirectory()
         {
@@ -335,21 +321,12 @@ namespace PredictGenderWPF
                     using (DrawingContext dc = dv.RenderOpen())
                     {
                         dc.DrawImage(bitmapImage, new Rect(0, 0, bitmapImage.PixelWidth, bitmapImage.PixelHeight));
-
-                        FormattedText text = new FormattedText(face.Gender,
-                            CultureInfo.GetCultureInfo("en-us"),
-                            FlowDirection.LeftToRight,
-                            new Typeface("Tahoma"),
-                            face.X2 / 5,
-                            Brushes.White,
-                            96);
-
-                        dc.DrawText(text, new Point(0, 0));
                     }
 
                     rtb.Render(dv);
 
                     SetSmallImage?.Invoke(rtb);
+                    SetGenderLabel?.Invoke(face.Gender);
                     break;
                 }
             }
@@ -365,10 +342,10 @@ namespace PredictGenderWPF
         {
             BitmapSource originalImage = GetOriginalImage?.Invoke().Clone();
 
-            double size = originalImage.Width * originalImage.Height;
-
-            double rectThickness = size / (500 * 500);
-            double fontSize = 20;
+            double size = originalImage.PixelWidth * originalImage.PixelHeight;
+            double scaleFactor = GetScaleFactor.Invoke();
+            double rectThickness = size / (750 * 750);
+            double fontSize = originalImage.PixelHeight / 30;
 
             Pen redPen = new Pen(Brushes.Red, rectThickness);
             Pen greenPen = new Pen(Brushes.LawnGreen, rectThickness);
@@ -395,7 +372,8 @@ namespace PredictGenderWPF
                         FlowDirection.LeftToRight,
                         new Typeface("Tahoma"),
                         fontSize,
-                        Brushes.White);
+                        Brushes.White,
+                        96);
 
                     try
                     {

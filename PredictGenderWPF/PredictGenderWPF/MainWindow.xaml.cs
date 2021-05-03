@@ -1,21 +1,12 @@
-﻿using Microsoft.Win32;
-using Microsoft.WindowsAPICodePack.Dialogs;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using Microsoft.Win32;
+using Microsoft.WindowsAPICodePack.Dialogs;
 
 namespace PredictGenderWPF
 {
@@ -43,6 +34,7 @@ namespace PredictGenderWPF
                 SetSmallImage = (smallImage) => { imageBoxSmall.Source = smallImage; },
                 SetListBoxFaces = (faces) => SetListBoxItems(faces),
                 SetSelectedLbItem = (faceName) => SetSelectedLbItem(faceName),
+                SetGenderLabel = (gender) => SetGenderLabel(gender),
                 LogMessage = (message) => Log(message)
             };
             _updateControlsEnableState = viewModel.UpdateControlsEnableState;
@@ -62,6 +54,7 @@ namespace PredictGenderWPF
                 ChangePictureEvent?.Invoke();
                 listBoxFaces.Items.Clear();
                 imageBoxSmall.Source = null;
+                SetGenderLabel("");
 
                 OriginalImagePath = openFileDialog.FileName;
 
@@ -91,6 +84,11 @@ namespace PredictGenderWPF
             Log($"Add new {prepairedFaces.Count} faces to ListBox");
         }
 
+        private void SetGenderLabel(string gender)
+        {
+            labelGender.Content = gender;
+        }
+
         private string GetImageSavingPath()
         {
             CommonOpenFileDialog dialog = new CommonOpenFileDialog
@@ -105,22 +103,6 @@ namespace PredictGenderWPF
                 return $"{path}\\result_image_{count}.jpg";
             }
             return string.Empty;
-        }
-
-        private BitmapImage BitmapToImageSource(Bitmap bitmap)
-        {
-            using (MemoryStream memory = new MemoryStream())
-            {
-                bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
-                memory.Position = 0;
-                BitmapImage bitmapimage = new BitmapImage();
-                bitmapimage.BeginInit();
-                bitmapimage.StreamSource = memory;
-                bitmapimage.CacheOption = BitmapCacheOption.OnLoad;
-                bitmapimage.EndInit();
-
-                return bitmapimage;
-            }
         }
 
         private double GetScaleFactor()

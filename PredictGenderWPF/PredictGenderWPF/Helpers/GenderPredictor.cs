@@ -12,7 +12,7 @@ namespace PredictGenderWPF
 {
     public class GenderPredictor
     {
-        private InferenceSession _session;
+        private readonly InferenceSession _session;
 
         public GenderPredictor()
         {
@@ -48,7 +48,7 @@ namespace PredictGenderWPF
                         input[0, 2, y, x] = (pixelSpan[x].B / 255f);
                     }
                 }
-                
+
                 // Setup inputs
                 var inputs = new List<NamedOnnxValue>
                 {
