@@ -42,7 +42,7 @@ We chose EfficientNet model pretrained on Imagenet for training on Our data set.
 |-----------------|------------|-----------|---------|-------|
 | EfficientNet-B0 | Our        | 0.924     | 0.872   | 0.897 |
 | EfficientNet-B2 | Our        | 0.911     | 0.887   | 0.899 |
-| **EfficientNet-B4** | **Our**        | **0.902**     | **0.897 **  | **0.9**   |
+| **EfficientNet-B4** | **Our**        | **0.902**     | **0.897**  | **0.9**   |
 | Gil Levi model  | Adience    | 0.893     | 0.6     | 0.718 |
 | VGG-Face        | IMDb-WIKI  | 0.649     | 0.985   | 0.782 |
 | FairFace        | FairFace   | 0.829     | 0.897   | 0.862 |
