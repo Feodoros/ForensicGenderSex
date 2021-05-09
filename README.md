@@ -5,17 +5,17 @@
 [TOC]
 
 ## Intro
-Gender classification algorithm in the forensic field based on EfficientNet model and manually marked up by gender WiderFace. 
+Gender classification algorithm in the forensic field based on [EfficientNet](https://github.com/qubvel/efficientnet) model and manually marked up by gender [WiderFace](http://shuoyang1213.me/WIDERFACE/). 
 
 ## Marked up WiderFace
-[WiderFace](http://shuoyang1213.me/WIDERFACE/) was selected because the images in this set are as close as possible to the forensic photos. This set is "more wild" (extreme scale, occlusion, etc) than similar datasets such as [FairFace](https://github.com/joojs/fairface), [Adience](https://talhassner.github.io/home/projects/Adience/Adience-data.html), [IMDb-Wiki](https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/). 
+WiderFace was selected because the images in this set are as close as possible to the forensic photos. This set is "more wild" (extreme scale, occlusion, etc) than similar datasets such as [FairFace](https://github.com/joojs/fairface), [Adience](https://talhassner.github.io/home/projects/Adience/Adience-data.html), [IMDb-Wiki](https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/). 
 After we take easy-scale part of images and marked up them by gender.
 Total amount of faces in our data set -- 12 662 (6331 Males and 6331 Females) . 
 The dataset is available on [Kaggle](https://www.kaggle.com/fedoszhilkin/genderwiderface) or [Drive](https://drive.google.com/file/d/1YwhdGujhdelwhqTAXzC6TYJwoPY0k65v/view?usp=sharing).
 
 ## Gender Classification 
 ### EfficientNet model
-We chose [EfficientNet](https://github.com/qubvel/efficientnet) model pretrained on Imagenet for training on Our data set. 
+We chose EfficientNet model pretrained on Imagenet for training on Our data set. 
 ### Results on Gendered WiderFace 
 | Method          | Trained on | Precision | Recall  | F1    |
 |-----------------|------------|-----------|---------|-------|
