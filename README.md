@@ -1,8 +1,20 @@
-
-
-**Table of Contents**
-
-[TOC]
+## Table of Contents
+- [Intro](#intro)
+- [Marked up WiderFace](#marked-up-widerface)
+- [Gender Classification](#gender-classification)
+  * [EfficientNet model](#efficientnet-model)
+  * [Results on Gendered WiderFace](#results-on-gendered-widerface)
+  * [Results on forensic set](#results-on-forensic-set)
+  * [Inference Latency](#inference-latency)
+  * [ROC-AUC on forensic set](#roc-auc-on-forensic-set)
+- [Usage](#usage)
+  * [Face Detector](#face-detector)
+  * [Python script](#python-script)
+  * [.NET WPF solution](#net-wpf-solution)
+    + [Convert pytorch model to onnx](#convert-pytorch-model-to-onnx)
+    + [How to use](#how-to-use)
+- [Paper](#paper)
+- [References](#references)
 
 ## Intro
 Gender classification algorithm in the forensic field based on [EfficientNet](https://github.com/qubvel/efficientnet) model and manually marked up by gender [WiderFace](http://shuoyang1213.me/WIDERFACE/). 
